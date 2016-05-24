@@ -143,6 +143,14 @@ module ActiveMerchant #:nodoc:
         end
       end
 
+      # Completes a 3D Secure transaction
+      def three_d_complete(pa_res, md)
+        post = { 'PARes' => pa_res, 'MD' => md }
+        #add_pair(post, :VendorTxCode, sanitize_order_id(options[:order_id]), :required => true)
+
+        commit(:three_d_complete, post)
+      end
+
       def supports_scrubbing
         true
       end
@@ -308,6 +316,8 @@ module ActiveMerchant #:nodoc:
       end
 
       def commit(action, parameters)
+        puts action
+        puts url_for(action)
         response = parse( ssl_post(url_for(action), post_data(action, parameters)) )
 
         Response.new(response["Status"] == APPROVED, message_from(response), response,
@@ -347,13 +357,18 @@ module ActiveMerchant #:nodoc:
         endpoint = case action
           when :purchase, :authorization then "vspdirect-register"
           when :store then 'directtoken'
+          when :three_d_complete then 'direct3dcallback'
           else TRANSACTIONS[action].downcase
         end
         "#{test? ? self.test_url : self.live_url}/#{endpoint}.vsp"
       end
 
       def build_simulator_url(action)
-        endpoint = [ :purchase, :authorization ].include?(action) ? "VSPDirectGateway.asp" : "VSPServerGateway.asp?Service=Vendor#{TRANSACTIONS[action].capitalize}Tx"
+        if action == :three_d_complete
+          endpoint = 'VSPDirectCallback.asp'
+        else
+          endpoint = [ :purchase, :authorization ].include?(action) ? "VSPDirectGateway.asp" : "VSPServerGateway.asp?Service=Vendor#{TRANSACTIONS[action].capitalize}Tx"
+        end
         "#{self.simulator_url}/#{endpoint}"
       end
 
